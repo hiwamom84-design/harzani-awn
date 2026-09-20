@@ -73,11 +73,10 @@ export default function Home() {
   const [showOtpInputModal, setShowOtpInputModal] = useState(false);
   const [showVerifiedAdminModal, setShowVerifiedAdminModal] = useState(false);
 
-  // Signup form states (تەنها ناو و تەنها گەڕەک)
   const [regName, setRegName] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regCity, setRegCity] = useState(IRAQ_CITIES[0]);
-  const [regStreet, setRegStreet] = useState(""); // ئەمە تەنها گەڕەکە
+  const [regStreet, setRegStreet] = useState("");
   const [regLocationUrl, setRegLocationUrl] = useState("");
   const [regLocLoading, setRegLocLoading] = useState(false);
   const [pendingOtpPhone, setPendingOtpPhone] = useState("");
@@ -85,7 +84,6 @@ export default function Home() {
 
   const [loginPhone, setLoginPhone] = useState("");
 
-  // Checkout inputs
   const [showCheckout, setShowCheckout] = useState(false);
   const [orderStreet, setOrderStreet] = useState("");
   const [orderCity, setOrderCity] = useState("");
@@ -97,6 +95,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // لێرەدا دەسەڵاتەکانمان بەستووە بە LocalStorage تاوەکو بە Refresh سڕێنەوە نەبن
   const [isAdmin, setIsAdmin] = useState(false);
   const [isStore, setIsStore] = useState(false);
   const [isDelivery, setIsDelivery] = useState(false);
@@ -165,6 +164,10 @@ export default function Home() {
       } catch (e) {}
     }
 
+    if (localStorage.getItem("auth_admin") === "true") setIsAdmin(true);
+    if (localStorage.getItem("auth_store") === "true") setIsStore(true);
+    if (localStorage.getItem("auth_delivery") === "true") setIsDelivery(true);
+
     return () => clearInterval(timer);
   }, []);
 
@@ -173,6 +176,7 @@ export default function Home() {
     if (showLoginModal === "admin") {
       if (passwordInput === "harzaniawn987") {
         setIsAdmin(true);
+        localStorage.setItem("auth_admin", "true");
         setShowLoginModal(null);
         setPasswordInput("");
       } else {
@@ -181,6 +185,7 @@ export default function Home() {
     } else if (showLoginModal === "store") {
       if (passwordInput === "store123") {
         setIsStore(true);
+        localStorage.setItem("auth_store", "true");
         setShowLoginModal(null);
         setPasswordInput("");
       } else {
@@ -189,11 +194,25 @@ export default function Home() {
     } else if (showLoginModal === "delivery") {
       if (passwordInput === "del123") {
         setIsDelivery(true);
+        localStorage.setItem("auth_delivery", "true");
         setShowLoginModal(null);
         setPasswordInput("");
       } else {
         alert("وشەی نهێنی دلیڤەری هەڵەیە!");
       }
+    }
+  };
+
+  const handleLogoutStaff = (role: "admin" | "store" | "delivery") => {
+    if (role === "admin") {
+      setIsAdmin(false);
+      localStorage.removeItem("auth_admin");
+    } else if (role === "store") {
+      setIsStore(false);
+      localStorage.removeItem("auth_store");
+    } else if (role === "delivery") {
+      setIsDelivery(false);
+      localStorage.removeItem("auth_delivery");
     }
   };
 
@@ -250,19 +269,6 @@ export default function Home() {
     } catch (err) {}
   };
 
-  const handleUpdateProductCategory = async (productId: number, newCat: string) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, category: newCat } : p))
-    );
-    try {
-      await fetch("/api/store", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "UPDATE_PRODUCT_CATEGORY", payload: { id: productId, category: newCat } }),
-      });
-    } catch (err) {}
-  };
-
   const handleDeleteProduct = async (id: number) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
     try {
@@ -273,20 +279,6 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.products) setProducts(data.products);
-    } catch (err) {}
-  };
-
-  const handleUpdateStock = async (id: number, newStock: number) => {
-    const stockVal = Math.max(0, newStock);
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, stock: stockVal } : p))
-    );
-    try {
-      await fetch("/api/store", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "UPDATE_STOCK", payload: { id, stock: stockVal } }),
-      });
     } catch (err) {}
   };
 
@@ -318,7 +310,6 @@ export default function Home() {
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!isIraqiPhoneValid(regPhone)) {
       alert("⚠️ تکایە ژمارەیەکی دروستی عێراقی بنووسە (بۆ نموونە 0750xxxxxxx).");
       return;
@@ -331,9 +322,9 @@ export default function Home() {
 
     const payload = {
       phone: regPhone,
-      name: regName.trim(), // تەنها ناو
+      name: regName.trim(),
       city: regCity,
-      street: regStreet.trim(), // تەنها گەڕەک
+      street: regStreet.trim(),
       locationUrl: regLocationUrl,
     };
 
@@ -548,7 +539,6 @@ export default function Home() {
   const adminOrders = orders.filter((o) => o.status === "admin_review");
   const storeOrders = orders.filter((o) => o.status === "store_preparing");
   const deliveryOrders = orders.filter((o) => o.status === "ready_for_delivery");
-  const deliveredOrders = orders.filter((o) => o.status === "delivered");
   const unverifiedUsersCount = registeredUsers.filter((u) => !u.isVerified).length;
 
   if (!isLoaded)
@@ -605,13 +595,13 @@ export default function Home() {
             {!isStore ? (
               <button onClick={() => setShowLoginModal("store")} style={{ backgroundColor: "#262626", color: "#38bdf8", padding: "9px 12px", borderRadius: "10px", border: "1px solid #0284c7", fontSize: "12px", cursor: "pointer" }}>🏪 دوکان</button>
             ) : (
-              <button onClick={() => setIsStore(false)} style={{ backgroundColor: "#0284c7", color: "#fff", padding: "9px 12px", borderRadius: "10px", border: "none", fontSize: "12px", cursor: "pointer" }}>دەرچوون لە دوکان</button>
+              <button onClick={() => handleLogoutStaff("store")} style={{ backgroundColor: "#0284c7", color: "#fff", padding: "9px 12px", borderRadius: "10px", border: "none", fontSize: "12px", cursor: "pointer" }}>دەرچوون لە دوکان</button>
             )}
 
             {!isDelivery ? (
               <button onClick={() => setShowLoginModal("delivery")} style={{ backgroundColor: "#262626", color: "#fbbf24", padding: "9px 12px", borderRadius: "10px", border: "1px solid #d97706", fontSize: "12px", cursor: "pointer" }}>🛵 دلیڤەری</button>
             ) : (
-              <button onClick={() => setIsDelivery(false)} style={{ backgroundColor: "#b45309", color: "#fff", padding: "9px 12px", borderRadius: "10px", border: "none", fontSize: "12px", cursor: "pointer" }}>دەرچوون لە دلیڤەری</button>
+              <button onClick={() => handleLogoutStaff("delivery")} style={{ backgroundColor: "#b45309", color: "#fff", padding: "9px 12px", borderRadius: "10px", border: "none", fontSize: "12px", cursor: "pointer" }}>دەرچوون لە دلیڤەری</button>
             )}
 
             {!isAdmin ? (
@@ -624,7 +614,7 @@ export default function Home() {
                 )}
               </button>
             ) : (
-              <button onClick={() => setIsAdmin(false)} style={{ backgroundColor: "#dc2626", color: "#fff", padding: "9px 12px", borderRadius: "10px", border: "none", fontSize: "12px", cursor: "pointer" }}>دەرچوون لە ئەدمین</button>
+              <button onClick={() => handleLogoutStaff("admin")} style={{ backgroundColor: "#dc2626", color: "#fff", padding: "9px 12px", borderRadius: "10px", border: "none", fontSize: "12px", cursor: "pointer" }}>دەرچوون لە ئەدمین</button>
             )}
           </div>
         </header>
@@ -663,7 +653,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 👤 مۆداڵی خۆتۆمارکردن (تەنها ناو و تەنها گەڕەک) */}
+        {/* 👤 مۆداڵی خۆتۆمارکردن */}
         {showSignupModal && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "16px" }}>
             <div style={{ backgroundColor: "#262626", border: "2px solid #2563eb", borderRadius: "20px", padding: "24px", width: "100%", maxWidth: "440px", maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box" }}>
@@ -671,8 +661,6 @@ export default function Home() {
                 📝 خۆتۆمارکردن لە هەرزانی ئاون
               </h2>
               <form onSubmit={handleSignupSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                
-                {/* تەنها ناو (نەک ناوی سیانی و باپیر) */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                   <label style={{ fontSize: "11px", color: "#a3a3a3" }}>ناوی خۆت:</label>
                   <input
@@ -724,7 +712,6 @@ export default function Home() {
                   </select>
                 </div>
 
-                {/* تەنها گەڕەک (ناوی گەڕەک و تەواو) */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                   <label style={{ fontSize: "11px", color: "#a3a3a3" }}>ناوی گەڕەک (تەنها گەڕەک):</label>
                   <input
@@ -795,7 +782,6 @@ export default function Home() {
                 <br />
                 <span style={{ fontSize: "12px", color: "#fbbf24" }}>کۆدەکە لێرە بنووسە:</span>
               </p>
-
               <input
                 type="text"
                 maxLength={4}
@@ -804,7 +790,6 @@ export default function Home() {
                 onChange={(e) => setEnteredOtpCode(e.target.value.replace(/\D/g, ""))}
                 style={{ width: "100%", boxSizing: "border-box", backgroundColor: "#171717", border: "1px solid #25D366", borderRadius: "10px", padding: "12px", color: "#fff", textAlign: "center", fontSize: "20px", letterSpacing: "6px", outline: "none", fontFamily: "monospace", marginBottom: "16px" }}
               />
-
               <button
                 onClick={handleVerifySignupCode}
                 style={{ width: "100%", backgroundColor: "#25D366", color: "#000", border: "none", padding: "12px", borderRadius: "10px", fontWeight: "bold", fontSize: "13px", cursor: "pointer" }}
@@ -1013,10 +998,13 @@ export default function Home() {
                   <h3 style={{ fontSize: "16px", fontWeight: "bold", margin: "0 0 6px 0", color: isOutOfStock ? "#a3a3a3" : "#fff" }}>{item.name}</h3>
                   <p style={{ fontSize: "18px", fontWeight: "800", color: "#4ade80", margin: 0 }}>{item.price.toLocaleString()} <span style={{ fontSize: "11px", color: "#a3a3a3" }}>IQD</span></p>
                 </div>
+                {isAdmin && (
+                  <button onClick={() => handleDeleteProduct(item.id)} style={{ backgroundColor: "rgba(239, 68, 68, 0.2)", color: "#f87171", border: "1px solid #dc2626", padding: "6px", borderRadius: "8px", fontSize: "12px", marginTop: "8px", cursor: "pointer" }}>سڕینەوەی کاڵا ❌</button>
+                )}
                 <button
                   onClick={() => addToCart(item)}
                   disabled={isOutOfStock}
-                  style={{ width: "100%", marginTop: "14px", padding: "10px", borderRadius: "10px", border: "none", fontWeight: "bold", fontSize: "13px", cursor: isOutOfStock ? "not-allowed" : "pointer", backgroundColor: isOutOfStock ? "#404040" : "#2563eb", color: isOutOfStock ? "#a3a3a3" : "#fff" }}
+                  style={{ width: "100%", marginTop: "10px", padding: "10px", borderRadius: "10px", border: "none", fontWeight: "bold", fontSize: "13px", cursor: isOutOfStock ? "not-allowed" : "pointer", backgroundColor: isOutOfStock ? "#404040" : "#2563eb", color: isOutOfStock ? "#a3a3a3" : "#fff" }}
                 >
                   {isOutOfStock ? "تەواو بووە" : "خستنە ناو سەبەتە"}
                 </button>
