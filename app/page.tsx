@@ -163,7 +163,11 @@ export default function Home() {
       } catch (e) {}
     }
 
-    if (localStorage.getItem("auth_admin") === "true") setIsAdmin(true);
+    if (localStorage.getItem("auth_admin") === "true") {
+      setIsAdmin(true);
+      setIsStore(true);
+      setIsDelivery(true);
+    }
     if (localStorage.getItem("auth_store") === "true") setIsStore(true);
     if (localStorage.getItem("auth_delivery") === "true") setIsDelivery(true);
 
@@ -175,7 +179,11 @@ export default function Home() {
     if (showLoginModal === "admin") {
       if (passwordInput === "harzaniawn987") {
         setIsAdmin(true);
+        setIsStore(true);
+        setIsDelivery(true);
         localStorage.setItem("auth_admin", "true");
+        localStorage.setItem("auth_store", "true");
+        localStorage.setItem("auth_delivery", "true");
         setShowLoginModal(null);
         setPasswordInput("");
       } else {
@@ -205,7 +213,11 @@ export default function Home() {
   const handleLogoutStaff = (role: "admin" | "store" | "delivery") => {
     if (role === "admin") {
       setIsAdmin(false);
+      setIsStore(false);
+      setIsDelivery(false);
       localStorage.removeItem("auth_admin");
+      localStorage.removeItem("auth_store");
+      localStorage.removeItem("auth_delivery");
     } else if (role === "store") {
       setIsStore(false);
       localStorage.removeItem("auth_store");
@@ -891,7 +903,7 @@ export default function Home() {
         {isAdmin && (
           <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
             
-            {/* پانێڵی بەڕێوەبردنی کڕیارەکان (چاڕوچۆنی داواکارییەکان و ڤێریفای) */}
+            {/* پانێڵی بەڕێوەبردنی کڕیارەکان */}
             <div style={{ backgroundColor: "#262626", border: "1px solid #3b82f6", borderRadius: "16px", padding: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
               <div>
                 <h3 style={{ fontSize: "16px", fontWeight: "bold", color: "#60a5fa", margin: 0 }}>👥 بەڕێوەبردنی کڕیارە تۆمارکراوەکان</h3>
@@ -903,7 +915,6 @@ export default function Home() {
               </div>
 
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                {/* دوگمەی بینینی چاوەڕوانییەکان */}
                 <button onClick={() => setShowVerifiedAdminModal(true)} style={{ backgroundColor: "#2563eb", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "10px", fontWeight: "bold", fontSize: "13px", cursor: "pointer", position: "relative" }}>
                   بینینی چاوەڕوانکراوەکان 📋
                   {unverifiedUsersCount > 0 && (
@@ -913,7 +924,6 @@ export default function Home() {
                   )}
                 </button>
 
-                {/* دوگمەی نوێ بۆ بینینی تەواوی کڕیارە ڤێریفای کراوەکان (کە خۆیان تۆمارکردووە) */}
                 <button onClick={() => {
                   const verifiedNames = verifiedUsersList.map(u => `👤 ناوی: ${u.name} | 📞 ژمارە: ${u.phone} | 📍 ${u.city}`).join("\n\n");
                   alert(verifiedNames ? `📋 لیستی کڕیارە ڤێریفای کراوەکان:\n\n${verifiedNames}` : "هیچ کڕیارێکی ڤێریفای کراو نییە!");
@@ -966,12 +976,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* مۆداڵی بەڕێوەبردنی کڕیارە چاوەڕوانکراوەکان */}
+        {/* مۆداڵی بەڕێوەبردنی کڕیاران */}
         {showVerifiedAdminModal && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "16px" }}>
             <div style={{ backgroundColor: "#262626", border: "1px solid #3b82f6", borderRadius: "20px", padding: "22px", width: "100%", maxWidth: "600px", maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #404040", paddingBottom: "12px", marginBottom: "16px" }}>
-                <h3 style={{ fontSize: "17px", fontWeight: "bold", color: "#60a5fa", margin: 0 }}>👥 کڕیارە چاوەڕوانکراوەکان بۆ ڤێریفای ({registeredUsers.length})</h3>
+                <h3 style={{ fontSize: "17px", fontWeight: "bold", color: "#60a5fa", margin: 0 }}>👥 کڕیارە چاوەڕوانکراوەکان ({registeredUsers.length})</h3>
                 <button onClick={() => setShowVerifiedAdminModal(false)} style={{ backgroundColor: "#404040", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "12px" }}>داخستن</button>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
