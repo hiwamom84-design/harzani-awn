@@ -11,14 +11,13 @@ async function connectToWhatsApp() {
   
   sock = makeWASocket({
     auth: state,
-    printQRInTerminal: false, // QR کۆدی گەورە ناڕوخێنێت
+    printQRInTerminal: false,
   });
 
   sock.ev.on("creds.update", saveCreds);
 
-  // لێرەدا کۆدی بەستنەوە (Pairing Code) بەکاردەهێنین بە بێ پێویستی بە QR
   if (!sock.authState.creds.registered) {
-    const phoneNumber = "9647501701136"; // 👈 ژمارەی وەتسአپەکەی خۆت لێرە بنوسە (بە نموونە 9647501234567)
+    const phoneNumber = "9647501701136"; 
     setTimeout(async () => {
       try {
         const code = await sock.requestPairingCode(phoneNumber);
@@ -53,6 +52,7 @@ app.post("/send-whatsapp", async (req, res) => {
   }
 });
 
+// بۆتەکە هەمیشە لەسەر پۆرتی ٣٠٠١ کار دەکات بۆ ئەوەی Next.js بیناسێتەوە
 app.listen(3001, () => {
   console.log("🚀 بۆتی وەتسአپ لە پۆرت ٣٠٠١ کار دەکات");
   connectToWhatsApp();
