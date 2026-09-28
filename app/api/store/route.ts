@@ -122,7 +122,6 @@ export async function POST(req: Request) {
           globalRegisteredUsers.push(newUser);
         }
 
-        // 🚀 ناردنی خودکاری کۆد بۆ وەتسአپ بە بێ بەرانبەر
         try {
           const cleanPhone = payload.phone.startsWith("0") ? payload.phone.substring(1) : payload.phone;
           const whatsappMessage = `سڵاو بەڕێز ${payload.name}، کۆدی پشکنینی تۆ لە هەرزانی ئاون ئەمەیە: ${randomOtp}`;
@@ -140,6 +139,36 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({ success: true, registeredUsers: globalRegisteredUsers });
+      }
+
+      // 👇 داواکردنی کۆد بۆ چوونەژوورەوە (Login OTP)
+      case "REQUEST_LOGIN": {
+        const user = globalRegisteredUsers.find((u) => u.phone === payload.phone);
+        if (!user) {
+          return NextResponse.json({ success: false, error: "ئەم ژمارە تەلەفۆنە تۆمار نەکراوە!" }, { status: 400 });
+        }
+
+        const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
+        user.verificationCode = randomOtp;
+        user.isVerified = false;
+
+        try {
+          const cleanPhone = payload.phone.startsWith("0") ? payload.phone.substring(1) : payload.phone;
+          const whatsappMessage = `سڵاو بەڕێز ${user.name}، کۆدی چوونەژوورەوەت بۆ هەرزانی ئاون ئەمەیە: ${randomOtp}`;
+          
+          await fetch("http://localhost:3001/send-whatsapp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone: `964${cleanPhone}`,
+              message: whatsappMessage,
+            }),
+          });
+        } catch (err) {
+          console.log("هەڵە لە ناردنی وەتسአپ بۆ چوونەژوورەوە:", err);
+        }
+
+        return NextResponse.json({ success: true, message: "کۆدی چوونەژوورەوە نێردرا" });
       }
 
       case "VERIFY_REGISTER_CODE": {
