@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 interface Product {
   id: number;
@@ -32,27 +34,67 @@ interface RegisteredUser {
   isVerified: boolean;
 }
 
-let globalProducts: Product[] = [
-  {
-    id: 1,
-    name: "زاهی",
-    price: 1000,
-    stock: 10,
-    img: "https://images.unsplash.com/photo-1585421514738-01798e348b17?w=600",
-    category: "پاککەرەوە",
-  },
-];
+interface DBData {
+  products: Product[];
+  categories: string[];
+  orders: Order[];
+  registeredUsers: RegisteredUser[];
+}
 
-let globalCategories: string[] = ["پاککەرەوە", "game"];
-let globalOrders: Order[] = [];
-let globalRegisteredUsers: RegisteredUser[] = [];
+// ڕێڕەوی فایلی داتابەیسەکە لەسەر سێرڤەر
+const dbFilePath = path.join(process.cwd(), "store_db.json");
+
+// خوێندنەوەی داتا لە فایلەکە
+function readDB(): DBData {
+  try {
+    if (fs.existsSync(dbFilePath)) {
+      const fileData = fs.readFileSync(dbFilePath, "utf8");
+      const parsed = JSON.parse(fileData);
+      return {
+        products: parsed.products || [],
+        categories: parsed.categories || ["پاککەرەوە", "game"],
+        orders: parsed.orders || [],
+        registeredUsers: parsed.registeredUsers || [],
+      };
+    }
+  } catch (err) {
+    console.log("هەڵە لە خوێندنەوەی داتابەیس:", err);
+  }
+
+  // ئەگەر فایلەکە نەبوو، بە داتای سەرەتایی دروستی دەکەین
+  return {
+    products: [
+      {
+        id: 1,
+        name: "زاهی",
+        price: 1000,
+        stock: 10,
+        img: "https://images.unsplash.com/photo-1585421514738-01798e348b17?w=600",
+        category: "پاککەرەوە",
+      },
+    ],
+    categories: ["پاککەرەوە", "game"],
+    orders: [],
+    registeredUsers: [],
+  };
+}
+
+// پاشەکەوتکردنی داتا لە فایلەکەدا
+function writeDB(data: DBData) {
+  try {
+    fs.writeFileSync(dbFilePath, JSON.stringify(data, null, 2), "utf8");
+  } catch (err) {
+    console.log("هەڵە لە پاشەکەوتکردنی داتابەیس:", err);
+  }
+}
 
 export async function GET() {
+  const db = readDB();
   return NextResponse.json({
-    products: globalProducts,
-    categories: globalCategories,
-    orders: globalOrders,
-    registeredUsers: globalRegisteredUsers,
+    products: db.products,
+    categories: db.categories,
+    orders: db.orders,
+    registeredUsers: db.registeredUsers,
   });
 }
 
@@ -60,6 +102,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { action, payload } = body;
+    let db = readDB();
 
     switch (action) {
       case "ADD_PRODUCT": {
@@ -71,40 +114,45 @@ export async function POST(req: Request) {
           img: payload.img,
           category: payload.category || "گشتی",
         };
-        globalProducts.unshift(newProduct);
-        return NextResponse.json({ success: true, products: globalProducts });
+        db.products.unshift(newProduct);
+        writeDB(db);
+        return NextResponse.json({ success: true, products: db.products });
       }
 
       case "ADD_CATEGORY": {
         const cat = payload.category.trim().replace(/^#/, "");
-        if (cat && !globalCategories.includes(cat)) {
-          globalCategories.push(cat);
+        if (cat && !db.categories.includes(cat)) {
+          db.categories.push(cat);
+          writeDB(db);
         }
-        return NextResponse.json({ success: true, categories: globalCategories });
+        return NextResponse.json({ success: true, categories: db.categories });
       }
 
       case "UPDATE_PRODUCT_CATEGORY": {
-        globalProducts = globalProducts.map((p) =>
+        db.products = db.products.map((p) =>
           p.id === payload.id ? { ...p, category: payload.category } : p
         );
-        return NextResponse.json({ success: true, products: globalProducts });
+        writeDB(db);
+        return NextResponse.json({ success: true, products: db.products });
       }
 
       case "DELETE_PRODUCT": {
-        globalProducts = globalProducts.filter((p) => p.id !== payload.id);
-        return NextResponse.json({ success: true, products: globalProducts });
+        db.products = db.products.filter((p) => p.id !== payload.id);
+        writeDB(db);
+        return NextResponse.json({ success: true, products: db.products });
       }
 
       case "UPDATE_STOCK": {
-        globalProducts = globalProducts.map((p) =>
+        db.products = db.products.map((p) =>
           p.id === payload.id ? { ...p, stock: payload.stock } : p
         );
-        return NextResponse.json({ success: true, products: globalProducts });
+        writeDB(db);
+        return NextResponse.json({ success: true, products: db.products });
       }
 
       case "REGISTER_USER": {
         const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
-        const existingIndex = globalRegisteredUsers.findIndex((u) => u.phone === payload.phone);
+        const existingIndex = db.registeredUsers.findIndex((u) => u.phone === payload.phone);
 
         const newUser: RegisteredUser = {
           phone: payload.phone,
@@ -117,10 +165,11 @@ export async function POST(req: Request) {
         };
 
         if (existingIndex >= 0) {
-          globalRegisteredUsers[existingIndex] = newUser;
+          db.registeredUsers[existingIndex] = newUser;
         } else {
-          globalRegisteredUsers.push(newUser);
+          db.registeredUsers.push(newUser);
         }
+        writeDB(db);
 
         try {
           const cleanPhone = payload.phone.startsWith("0") ? payload.phone.substring(1) : payload.phone;
@@ -138,19 +187,27 @@ export async function POST(req: Request) {
           console.log("هەڵە لە ناردنی وەتسአپ:", err);
         }
 
-        return NextResponse.json({ success: true, registeredUsers: globalRegisteredUsers });
+        return NextResponse.json({ success: true, registeredUsers: db.registeredUsers });
       }
 
-      // 👇 داواکردنی کۆد بۆ چوونەژوورەوە (Login OTP)
       case "REQUEST_LOGIN": {
-        const user = globalRegisteredUsers.find((u) => u.phone === payload.phone);
+        const user = db.registeredUsers.find((u) => u.phone === payload.phone);
         if (!user) {
           return NextResponse.json({ success: false, error: "ئەم ژمارە تەلەفۆنە تۆمار نەکراوە!" }, { status: 400 });
         }
 
+        if (user.isVerified) {
+          return NextResponse.json({ 
+            success: true, 
+            alreadyVerified: true, 
+            message: "ئەم بەکارهێنەرە پێشتر پشکنراوە و ڕاستەوخۆ دەچێتە ژوورەوە",
+            user 
+          });
+        }
+
         const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
         user.verificationCode = randomOtp;
-        user.isVerified = false;
+        writeDB(db);
 
         try {
           const cleanPhone = payload.phone.startsWith("0") ? payload.phone.substring(1) : payload.phone;
@@ -168,21 +225,23 @@ export async function POST(req: Request) {
           console.log("هەڵە لە ناردنی وەتسአپ بۆ چوونەژوورەوە:", err);
         }
 
-        return NextResponse.json({ success: true, message: "کۆدی چوونەژوورەوە نێردرا" });
+        return NextResponse.json({ success: true, alreadyVerified: false, message: "کۆدی چوونەژوورەوە نێردرا" });
       }
 
       case "VERIFY_REGISTER_CODE": {
-        const user = globalRegisteredUsers.find((u) => u.phone === payload.phone);
+        const user = db.registeredUsers.find((u) => u.phone === payload.phone);
         if (user && user.verificationCode === payload.code) {
           user.isVerified = true;
-          return NextResponse.json({ success: true, registeredUsers: globalRegisteredUsers });
+          writeDB(db);
+          return NextResponse.json({ success: true, registeredUsers: db.registeredUsers });
         }
         return NextResponse.json({ success: false, error: "کۆد هەڵەیە" }, { status: 400 });
       }
 
       case "DELETE_REGISTERED_USER": {
-        globalRegisteredUsers = globalRegisteredUsers.filter((u) => u.phone !== payload.phone);
-        return NextResponse.json({ success: true, registeredUsers: globalRegisteredUsers });
+        db.registeredUsers = db.registeredUsers.filter((u) => u.phone !== payload.phone);
+        writeDB(db);
+        return NextResponse.json({ success: true, registeredUsers: db.registeredUsers });
       }
 
       case "ADD_ORDER": {
@@ -202,49 +261,54 @@ export async function POST(req: Request) {
         };
 
         payload.items.forEach((item: any) => {
-          const prod = globalProducts.find((p) => p.name === item.name);
+          const prod = db.products.find((p) => p.name === item.name);
           if (prod) {
             prod.stock = Math.max(0, prod.stock - item.quantity);
           }
         });
 
-        globalOrders.unshift(newOrder);
-        return NextResponse.json({ success: true, orders: globalOrders });
+        db.orders.unshift(newOrder);
+        writeDB(db);
+        return NextResponse.json({ success: true, orders: db.orders });
       }
 
       case "SEND_TO_STORE": {
-        globalOrders = globalOrders.map((o) =>
+        db.orders = db.orders.map((o) =>
           o.id === payload.orderId ? { ...o, status: "store_preparing" } : o
         );
-        return NextResponse.json({ success: true, orders: globalOrders });
+        writeDB(db);
+        return NextResponse.json({ success: true, orders: db.orders });
       }
 
       case "READY_FOR_DELIVERY": {
-        globalOrders = globalOrders.map((o) =>
+        db.orders = db.orders.map((o) =>
           o.id === payload.orderId ? { ...o, status: "ready_for_delivery" } : o
         );
-        return NextResponse.json({ success: true, orders: globalOrders });
+        writeDB(db);
+        return NextResponse.json({ success: true, orders: db.orders });
       }
 
       case "DELIVER_ORDER": {
         const deliverTime = new Date();
         const deliveredStr = `${deliverTime.toLocaleDateString("en-GB")} | ${deliverTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
-        globalOrders = globalOrders.map((o) =>
+        db.orders = db.orders.map((o) =>
           o.id === payload.orderId ? { ...o, status: "delivered", deliveredAt: deliveredStr } : o
         );
-        return NextResponse.json({ success: true, orders: globalOrders });
+        writeDB(db);
+        return NextResponse.json({ success: true, orders: db.orders });
       }
 
       case "CANCEL_ORDER": {
-        const targetOrder = globalOrders.find((o) => o.id === payload.orderId);
+        const targetOrder = db.orders.find((o) => o.id === payload.orderId);
         if (targetOrder) {
           targetOrder.items.forEach((it) => {
-            const prod = globalProducts.find((p) => p.name === it.name);
+            const prod = db.products.find((p) => p.name === it.name);
             if (prod) prod.stock += it.quantity;
           });
-          globalOrders = globalOrders.filter((o) => o.id !== payload.orderId);
+          db.orders = db.orders.filter((o) => o.id !== payload.orderId);
+          writeDB(db);
         }
-        return NextResponse.json({ success: true, orders: globalOrders, products: globalProducts });
+        return NextResponse.json({ success: true, orders: db.orders, products: db.products });
       }
 
       default:
