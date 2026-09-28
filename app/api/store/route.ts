@@ -41,10 +41,8 @@ interface DBData {
   registeredUsers: RegisteredUser[];
 }
 
-// ڕێڕەوی فایلی داتابەیسەکە لەسەر سێرڤەر
 const dbFilePath = path.join(process.cwd(), "store_db.json");
 
-// خوێندنەوەی داتا لە فایلەکە
 function readDB(): DBData {
   try {
     if (fs.existsSync(dbFilePath)) {
@@ -61,7 +59,6 @@ function readDB(): DBData {
     console.log("هەڵە لە خوێندنەوەی داتابەیس:", err);
   }
 
-  // ئەگەر فایلەکە نەبوو، بە داتای سەرەتایی دروستی دەکەین
   return {
     products: [
       {
@@ -79,7 +76,6 @@ function readDB(): DBData {
   };
 }
 
-// پاشەکەوتکردنی داتا لە فایلەکەدا
 function writeDB(data: DBData) {
   try {
     fs.writeFileSync(dbFilePath, JSON.stringify(data, null, 2), "utf8");
@@ -190,23 +186,16 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, registeredUsers: db.registeredUsers });
       }
 
+      // 👇 چوونەژوورەوە: هەر جارێک داوا بکرێت، کۆدی نوێ دەنێرێت و دەبێت کۆدەکە بنووسێت تا بچێتە ژوورەوە
       case "REQUEST_LOGIN": {
         const user = db.registeredUsers.find((u) => u.phone === payload.phone);
         if (!user) {
           return NextResponse.json({ success: false, error: "ئەم ژمارە تەلەفۆنە تۆمار نەکراوە!" }, { status: 400 });
         }
 
-        if (user.isVerified) {
-          return NextResponse.json({ 
-            success: true, 
-            alreadyVerified: true, 
-            message: "ئەم بەکارهێنەرە پێشتر پشکنراوە و ڕاستەوخۆ دەچێتە ژوورەوە",
-            user 
-          });
-        }
-
         const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
         user.verificationCode = randomOtp;
+        user.isVerified = false; // دەبێت دووبارە پشکنین بکاتەوە
         writeDB(db);
 
         try {
@@ -225,7 +214,7 @@ export async function POST(req: Request) {
           console.log("هەڵە لە ناردنی وەتسአپ بۆ چوونەژوورەوە:", err);
         }
 
-        return NextResponse.json({ success: true, alreadyVerified: false, message: "کۆدی چوونەژوورەوە نێردرا" });
+        return NextResponse.json({ success: true, message: "کۆدی چوونەژوورەوە نێردرا" });
       }
 
       case "VERIFY_REGISTER_CODE": {
