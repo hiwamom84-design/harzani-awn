@@ -8,5 +8,20 @@
       "id": 1789302654876
     }
   ],
-  "orders": []
+  "categories": [
+    "پاککەرەوە",
+    "game"
+  ],
+  "orders": [],
+  "registeredUsers": [
+    {
+      "phone": "07501701136",
+      "name": "NUH",
+      "city": "هەولێر (Erbil)",
+      "street": "HAWKARI",
+      "locationUrl": "https://www.google.com/maps?q=36.166016,44.079346",
+      "verificationCode": "1501",
+      "isVerified": true
+    }
+  ]
 }

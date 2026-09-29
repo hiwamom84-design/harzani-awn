@@ -71,6 +71,12 @@ export default function Home() {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showLoginModalUser, setShowLoginModalUser] = useState(false);
   const [showOtpInputModal, setShowOtpInputModal] = useState(false);
+  
+  // 👇 زیادکراوە بۆ بەشی چوونەژوورەوەی کڕیار بە OTP
+  const [showLoginOtpModal, setShowLoginOtpModal] = useState(false);
+  const [pendingLoginPhone, setPendingLoginPhone] = useState("");
+  const [enteredLoginOtp, setEnteredLoginOtp] = useState("");
+
   const [showVerifiedAdminModal, setShowVerifiedAdminModal] = useState(false);
 
   const [regName, setRegName] = useState("");
@@ -381,18 +387,55 @@ export default function Home() {
     }
   };
 
-  const handleLoginUser = (e: React.FormEvent) => {
+  // 👇 فەنکشنی نوێکراوە بۆ چوونەژوورەوە (هەمیشە کۆد دەنێرێت)
+  const handleLoginUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const foundUser = registeredUsers.find((u) => u.phone === loginPhone && u.isVerified);
+    if (!loginPhone.trim()) return;
 
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      localStorage.setItem("current_logged_user", JSON.stringify(foundUser));
-      setShowLoginModalUser(false);
-      setLoginPhone("");
-      alert("بە سەرکەوتوویی چوویە ژوورەوە!");
-    } else {
-      alert("ئەم ژمارەیە تۆمار نەکراوە یان هێشتا ڤێریفای نەکراوە!");
+    try {
+      const res = await fetch("/api/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "REQUEST_LOGIN", payload: { phone: loginPhone.trim() } }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPendingLoginPhone(loginPhone.trim());
+        setShowLoginModalUser(false);
+        setShowLoginOtpModal(true); // کرانەوەی پەنجەرەی نووسینی کۆد
+        setLoginPhone("");
+      } else {
+        alert(data.error || "ئەم ژمارە تەلەفۆنە تۆمار نەکراوە!");
+      }
+    } catch (err) {
+      alert("هەڵە ڕووی دا لە ناردنی داواکاری چوونەژوورەوە");
+    }
+  };
+
+  // 👇 فەنکشنی پشتڕاستکردنەوەی کۆدی چوونەژوورەوە
+  const handleVerifyLoginCode = async () => {
+    try {
+      const res = await fetch("/api/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "VERIFY_REGISTER_CODE", 
+          payload: { phone: pendingLoginPhone, code: enteredLoginOtp.trim() } 
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const loggedUser = data.registeredUsers.find((u: RegisteredUser) => u.phone === pendingLoginPhone);
+        setCurrentUser(loggedUser);
+        localStorage.setItem("current_logged_user", JSON.stringify(loggedUser));
+        setShowLoginOtpModal(false);
+        setEnteredLoginOtp("");
+        alert("بە سەرکەوتوویی چوویە ژوورەوە!");
+      } else {
+        alert("کۆدەکە هەڵەیە!");
+      }
+    } catch (e) {
+      alert("هەڵە لە پشکنینی کۆد");
     }
   };
 
@@ -789,7 +832,7 @@ export default function Home() {
                   required
                 />
                 <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                  <button type="submit" style={{ flex: 1, backgroundColor: "#2563eb", color: "#fff", border: "none", padding: "10px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>چوونەژوورەوە ✅</button>
+                  <button type="submit" style={{ flex: 1, backgroundColor: "#2563eb", color: "#fff", border: "none", padding: "10px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>ناردنی کۆدی چوونەژوورەوە ✉️</button>
                   <button type="button" onClick={() => setShowLoginModalUser(false)} style={{ flex: 1, backgroundColor: "#404040", color: "#fff", border: "none", padding: "10px", borderRadius: "10px", cursor: "pointer" }}>داخستن</button>
                 </div>
               </form>
@@ -797,7 +840,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 💬 مۆداڵی OTP */}
+        {/* 💬 مۆداڵی OTP بۆ خۆتۆمارکردن */}
         {showOtpInputModal && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: "16px" }}>
             <div style={{ backgroundColor: "#262626", border: "2px solid #25D366", borderRadius: "20px", padding: "24px", width: "100%", maxWidth: "380px", textAlign: "center" }}>
@@ -821,6 +864,33 @@ export default function Home() {
                 style={{ width: "100%", backgroundColor: "#25D366", color: "#000", border: "none", padding: "12px", borderRadius: "10px", fontWeight: "bold", fontSize: "13px", cursor: "pointer" }}
               >
                 پشتڕاستکردنەوە ✅
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 💬 مۆداڵی OTP بۆ چوونەژوورەوە (Login OTP Modal) */}
+        {showLoginOtpModal && (
+          <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: "16px" }}>
+            <div style={{ backgroundColor: "#262626", border: "2px solid #25D366", borderRadius: "20px", padding: "24px", width: "100%", maxWidth: "380px", textAlign: "center" }}>
+              <div style={{ fontSize: "36px", marginBottom: "8px" }}>🔑</div>
+              <h3 style={{ fontSize: "18px", fontWeight: "bold", color: "#25D366", margin: "0 0 10px 0" }}>کۆدی چوونەژوورەوە بنووسە</h3>
+              <p style={{ fontSize: "13px", color: "#d4d4d4", lineHeight: "1.6", margin: "0 0 16px 0" }}>
+                کۆدی پشکنین بۆ چوونەژوورەوە نێردرا بۆ واتسአپەکەت.
+              </p>
+              <input
+                type="text"
+                maxLength={4}
+                placeholder="٠٠٠٠"
+                value={enteredLoginOtp}
+                onChange={(e) => setEnteredLoginOtp(e.target.value.replace(/\D/g, ""))}
+                style={{ width: "100%", boxSizing: "border-box", backgroundColor: "#171717", border: "1px solid #25D366", borderRadius: "10px", padding: "12px", color: "#fff", textAlign: "center", fontSize: "20px", letterSpacing: "6px", outline: "none", fontFamily: "monospace", marginBottom: "16px" }}
+              />
+              <button
+                onClick={handleVerifyLoginCode}
+                style={{ width: "100%", backgroundColor: "#25D366", color: "#000", border: "none", padding: "12px", borderRadius: "10px", fontWeight: "bold", fontSize: "13px", cursor: "pointer" }}
+              >
+                چوونەژوورەوە ✅
               </button>
             </div>
           </div>
