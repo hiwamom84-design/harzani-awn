@@ -376,9 +376,12 @@ export default function Home() {
 
   const handleVerifySignupCode = async () => {
     const targetUser = registeredUsers.find((u) => u.phone === pendingOtpPhone);
-    if (!targetUser) return;
+    if (!targetUser) {
+      alert("هەڵە: بەکارهێنەر نەدۆزراوەتەوە!");
+      return;
+    }
 
-    if (enteredOtpCode.trim() === targetUser.verificationCode) {
+    if (enteredOtpCode.trim() === String(targetUser.verificationCode).trim()) {
       try {
         const res = await fetch("/api/store", {
           method: "POST",
@@ -396,7 +399,7 @@ export default function Home() {
         }
       } catch (e) {}
     } else {
-      alert("کۆدەکە هەڵەیە!");
+      alert(`کۆدەکە هەڵەیە! (تۆ نووسیوتە: ${enteredOtpCode}، کۆدی ڕاستەقینە: ${targetUser.verificationCode})`);
     }
   };
 
@@ -746,7 +749,6 @@ export default function Home() {
           border-color: rgba(56, 189, 248, 0.5);
           box-shadow: 0 20px 50px -10px rgba(56, 189, 248, 0.35);
         }
-        /* سەکۆی هۆلۆگرافی خەیاڵی (Cyberpunk Holographic Portal Frame) بۆ نیشاندانی کاڵاکان بە شێوازێکی زۆر پاک و سەرنجڕاکێش */
         .cyber-portal-box {
           background: radial-gradient(circle, #090d16 0%, #000000 100%);
           display: flex;
@@ -769,7 +771,6 @@ export default function Home() {
         }
       `}</style>
 
-      {/* باکگراوندی جووڵاوی سەرنجڕاکێش */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
         <div className="absolute inset-0 moving-grid opacity-90"></div>
         <div className="laser-glow-1"></div>
@@ -783,11 +784,10 @@ export default function Home() {
 
       <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative", zIndex: 1 }}>
         
-        {/* سەرپەڕە */}
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "24px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", flexWrap: "wrap", gap: "16px" }}>
           <div>
             <h1 style={{ fontSize: "24px", fontWeight: "800", letterSpacing: "-0.5px", color: "#ffffff", margin: 0 }}>
-              هەرزانی ئاون
+              هرزانی ئاون
             </h1>
             <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "2px", margin: 0 }}>فروشگای فەرمی ئۆنلاین</p>
           </div>
@@ -857,7 +857,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* مۆداڵەکان */}
         {showLoginModal && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(2, 4, 10, 0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: "16px" }}>
             <div className="bento-card" style={{ borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "360px" }}>
@@ -1002,7 +1001,7 @@ export default function Home() {
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(2, 4, 10, 0.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: "16px" }}>
             <div className="bento-card" style={{ borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "340px", textAlign: "center" }}>
               <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#f8fafc", margin: "0 0 8px 0" }}>پشکنینی کۆد</h3>
-              <p style={{ fontSize: "12px", color: "#94a3b8", margin: "0 0 16px 0" }}>کۆدی نێردراو بۆ واتسአپ بنووسە:</p>
+              <p style={{ fontSize: "12px", color: "#94a3b8", margin: "0 0 16px 0" }}>کۆدی نێردراو بۆ واتسئەپ بنووسە:</p>
               <input
                 type="text"
                 maxLength={4}
@@ -1044,7 +1043,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* پۆستەری دوکان */}
         {isStore && (
           <div style={{ marginTop: "24px" }}>
             <div className="bento-card" style={{ borderRadius: "16px", padding: "20px" }}>
@@ -1084,7 +1082,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* بەشی گەیاندن */}
         {isDelivery && (
           <div style={{ marginTop: "24px" }}>
             <div className="bento-card" style={{ borderRadius: "16px", padding: "20px" }}>
@@ -1116,7 +1113,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* پانێڵی بەڕێوەبەر */}
         {isAdmin && (
           <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
             <div className="bento-card" style={{ borderRadius: "16px", padding: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
@@ -1180,7 +1176,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* مۆداڵی بەڕێوەبردنی کاربەرەکان */}
         {showVerifiedAdminModal && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(2, 4, 10, 0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "16px" }}>
             <div className="bento-card" style={{ borderRadius: "16px", padding: "20px", width: "100%", maxWidth: "550px", maxHeight: "90vh", overflowY: "auto" }}>
@@ -1216,7 +1211,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* گەڕان (Search) */}
         <div style={{ marginTop: "28px", maxWidth: "400px", margin: "28px auto 0" }}>
           <input
             type="text"
@@ -1227,7 +1221,6 @@ export default function Home() {
           />
         </div>
 
-        {/* پۆلێنەکان پاک */}
         <div style={{ display: "flex", gap: "8px", justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: "16px" }}>
           <button onClick={() => setSelectedCategory("all")} style={{ backgroundColor: selectedCategory === "all" ? "#38bdf8" : "rgba(10, 14, 28, 0.6)", color: selectedCategory === "all" ? "#02040a" : "#cbd5e1", border: "1px solid rgba(56, 189, 248, 0.2)", padding: "6px 14px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}>هەمووی</button>
           {categories.map((cat) => (
@@ -1238,13 +1231,11 @@ export default function Home() {
           )}
         </div>
 
-        {/* لیستی کاڵاکان بە سەکۆی هۆلۆگرافی (Cyber Portal Box) */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "16px", marginTop: "24px" }}>
           {filteredProducts.map((item) => {
             const isOutOfStock = item.stock <= 0;
             return (
               <div key={item.id} className="bento-card" style={{ borderRadius: "16px", padding: "12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                {/* ئەمە وێنەکەت لە ناو سەکۆیەکی نایاب و سەرنجڕاکێشدا نیشان دەدات */}
                 <div className="cyber-portal-box" style={{ width: "100%", height: "180px", borderRadius: "12px", marginBottom: "12px" }}>
                   <img src={item.img} alt={item.name} style={{ filter: isOutOfStock ? "grayscale(100%) opacity(40%)" : undefined }} />
                 </div>
@@ -1267,7 +1258,6 @@ export default function Home() {
           })}
         </div>
 
-        {/* سەبەتەی خوارەوە */}
         {totalCartCount > 0 && (
           <div style={{ position: "fixed", bottom: "16px", left: "50%", transform: "translateX(-50%)", width: "calc(100% - 32px)", maxWidth: "500px", backgroundColor: "rgba(10, 14, 28, 0.9)", backdropFilter: "blur(20px)", border: "1px solid rgba(56, 189, 248, 0.3)", borderRadius: "16px", padding: "12px 16px", zIndex: 999, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
             
@@ -1297,7 +1287,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* سندوقی تەواوکردنی کڕین */}
         {showCheckout && currentUser && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(2, 4, 10, 0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "16px" }}>
             <div className="bento-card" style={{ borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "400px" }}>
