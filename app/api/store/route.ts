@@ -91,8 +91,8 @@ export async function POST(req: Request) {
           name: payload.name,
           price: payload.price,
           stock: payload.stock,
-          img: payload.img,
           category: payload.category || "گشتی",
+          img: payload.img,
         };
         db.products.unshift(newProduct);
         await writeDB(db);
@@ -197,12 +197,12 @@ export async function POST(req: Request) {
           console.log("هەڵە لە ناردنی وەتسአپ بۆ چوونەژوورەوە:", err);
         }
 
-        return NextResponse.json({ success: true, message: "کۆدی چوونەژوورەوە نێردرا" });
+        return NextResponse.json({ success: true, registeredUsers: db.registeredUsers, message: "کۆدی چوونەژوورەوە نێردرا" });
       }
 
       case "VERIFY_REGISTER_CODE": {
         const user = db.registeredUsers.find((u: any) => u.phone === payload.phone);
-        if (user && user.verificationCode === payload.code) {
+        if (user && String(user.verificationCode).trim() === String(payload.code).trim()) {
           user.isVerified = true;
           await writeDB(db);
           return NextResponse.json({ success: true, registeredUsers: db.registeredUsers });
