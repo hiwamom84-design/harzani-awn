@@ -35,7 +35,7 @@ async function initDB() {
             category: "پاککەرەوە",
           },
         ],
-        categories: ["پاککەرەوە", "game"],
+        categories: ["پاککەرەوە", "game", "🔥 داشکاندنەکان"],
         orders: [],
         registeredUsers: [],
       };
@@ -58,11 +58,10 @@ async function readDB() {
         return res.rows[0].data;
       }
     } catch (err) {
-      console.log("هەڵە لە خوێندنەوەی داتابەیس، دەگوازینەوە بۆ فایلی لۆکاڵی:", err);
+      console.log("هەڵە لە خوێندنەوەی داتابەیس:", err);
     }
   }
 
-  // خوێندنەوە لە فایلی لۆکاڵی store_db.json ئەگەر داتابەیس ئامادە نەبوو
   try {
     if (fs.existsSync(filePath)) {
       const fileData = fs.readFileSync(filePath, "utf-8");
@@ -83,7 +82,7 @@ async function readDB() {
         category: "پاککەرەوە",
       },
     ],
-    categories: ["پاککەرەوە", "game"],
+    categories: ["پاککەرەوە", "game", "🔥 داشکاندنەکان"],
     orders: [],
     registeredUsers: [],
   };
@@ -95,7 +94,7 @@ async function writeDB(data: any) {
       await pool.query(`UPDATE store_data SET data = $1;`, [JSON.stringify(data)]);
       return;
     } catch (err) {
-      console.log("هەڵە لە نوێکردنەوەی داتابەیس، دەگوازینەوە بۆ فایلی لۆکاڵی:", err);
+      console.log("هەڵە لە نوێکردنەوەی داتابەیس:", err);
     }
   }
 
@@ -108,9 +107,12 @@ async function writeDB(data: any) {
 
 export async function GET() {
   const db = await readDB();
+  if (!db.categories.includes("🔥 داشکاندنەکان")) {
+    db.categories.push("🔥 داشکاندنەکان");
+  }
   return NextResponse.json({
     products: db.products || [],
-    categories: db.categories || ["پاککەرەوە", "game"],
+    categories: db.categories || ["پاککەرەوە", "game", "🔥 داشکاندنەکان"],
     orders: db.orders || [],
     registeredUsers: db.registeredUsers || [],
   });
@@ -124,15 +126,30 @@ export async function POST(req: Request) {
 
     switch (action) {
       case "ADD_PRODUCT": {
-        const newProduct = {
-          id: Date.now(),
-          name: payload.name,
-          price: payload.price,
-          stock: payload.stock,
-          category: payload.category || "گشتی",
-          img: payload.img,
-        };
-        db.products.unshift(newProduct);
+        const existingIndex = db.products.findIndex((p: any) => p.id === payload.id);
+
+        if (existingIndex >= 0) {
+          db.products[existingIndex] = {
+            ...db.products[existingIndex],
+            ...payload,
+            originalPrice: payload.originalPrice !== undefined ? payload.originalPrice : undefined,
+            discountPercent: payload.discountPercent !== undefined ? payload.discountPercent : undefined,
+          };
+        } else {
+          const newProduct = {
+            id: payload.id || Date.now(),
+            name: payload.name,
+            price: payload.price,
+            originalPrice: payload.originalPrice,
+            discountPercent: payload.discountPercent,
+            stock: payload.stock,
+            category: payload.category || "گشتی",
+            img: payload.img,
+            images: payload.images,
+          };
+          db.products.unshift(newProduct);
+        }
+
         await writeDB(db);
         return NextResponse.json({ success: true, products: db.products });
       }
@@ -146,24 +163,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, categories: db.categories });
       }
 
-      case "UPDATE_PRODUCT_CATEGORY": {
-        db.products = db.products.map((p: any) =>
-          p.id === payload.id ? { ...p, category: payload.category } : p
-        );
-        await writeDB(db);
-        return NextResponse.json({ success: true, products: db.products });
-      }
-
       case "DELETE_PRODUCT": {
         db.products = db.products.filter((p: any) => p.id !== payload.id);
-        await writeDB(db);
-        return NextResponse.json({ success: true, products: db.products });
-      }
-
-      case "UPDATE_STOCK": {
-        db.products = db.products.map((p: any) =>
-          p.id === payload.id ? { ...p, stock: payload.stock } : p
-        );
         await writeDB(db);
         return NextResponse.json({ success: true, products: db.products });
       }
@@ -188,54 +189,19 @@ export async function POST(req: Request) {
           db.registeredUsers.push(newUser);
         }
         await writeDB(db);
-
-        try {
-          const cleanPhone = payload.phone.startsWith("0") ? payload.phone.substring(1) : payload.phone;
-          const whatsappMessage = `سڵاو بەڕێز ${payload.name}، کۆدی پشکنینی تۆ لە هەرزانی ئاون ئەمەیە: ${randomOtp}`;
-          
-          await fetch("http://localhost:3001/send-whatsapp", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone: `964${cleanPhone}`,
-              message: whatsappMessage,
-            }),
-          });
-        } catch (err) {
-          console.log("هەڵە لە ناردنی وەتسአپ:", err);
-        }
-
         return NextResponse.json({ success: true, registeredUsers: db.registeredUsers });
       }
 
       case "REQUEST_LOGIN": {
         const user = db.registeredUsers.find((u: any) => u.phone === payload.phone);
         if (!user) {
-          return NextResponse.json({ success: false, error: "ئەم ژمارە تەلەفۆنە تۆمار نەکراوە!" }, { status: 400 });
+          return NextResponse.json({ success: false, error: "ئەم ژمارەیە تۆمار نەکراوە!" }, { status: 400 });
         }
-
         const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
         user.verificationCode = randomOtp;
         user.isVerified = false;
         await writeDB(db);
-
-        try {
-          const cleanPhone = payload.phone.startsWith("0") ? payload.phone.substring(1) : payload.phone;
-          const whatsappMessage = `سڵاو بەڕێز ${user.name}، کۆدی چوونەژوورەوەت بۆ هەرزانی ئاون ئەمەیە: ${randomOtp}`;
-          
-          await fetch("http://localhost:3001/send-whatsapp", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone: `964${cleanPhone}`,
-              message: whatsappMessage,
-            }),
-          });
-        } catch (err) {
-          console.log("هەڵە لە ناردنی وەتسአپ بۆ چوونەژوورەوە:", err);
-        }
-
-        return NextResponse.json({ success: true, registeredUsers: db.registeredUsers, message: "کۆدی چوونەژوورەوە نێردرا" });
+        return NextResponse.json({ success: true, registeredUsers: db.registeredUsers });
       }
 
       case "VERIFY_REGISTER_CODE": {

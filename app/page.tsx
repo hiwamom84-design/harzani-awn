@@ -5,8 +5,11 @@ interface Product {
   id: number;
   name: string;
   price: number;
+  originalPrice?: number;
+  discountPercent?: number;
   stock: number;
   img: string;
+  images?: string[];
   category?: string;
 }
 
@@ -62,7 +65,7 @@ const IRAQ_CITIES = [
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>(["پاککەرەوە", "game"]);
+  const [categories, setCategories] = useState<string[]>(["پاککەرەوە", "game", "🔥 داشکاندنەکان"]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
 
@@ -77,6 +80,7 @@ export default function Home() {
   const [enteredLoginOtp, setEnteredLoginOtp] = useState("");
 
   const [showVerifiedAdminModal, setShowVerifiedAdminModal] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const [regName, setRegName] = useState("");
   const [regPhone, setRegPhone] = useState("");
@@ -111,7 +115,10 @@ export default function Home() {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [categorySelect, setCategorySelect] = useState("پاککەرەوە");
-  const [selectedImage, setSelectedImage] = useState<string>("");
+  
+  const [img1, setImg1] = useState("");
+  const [img2, setImg2] = useState("");
+  const [img3, setImg3] = useState("");
 
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
 
@@ -246,11 +253,13 @@ export default function Home() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setSelectedImage(reader.result as string);
+      reader.onloadend = () => {
+        setter(reader.result as string);
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -259,18 +268,24 @@ export default function Home() {
     e.preventDefault();
     if (!name.trim() || !price) return;
 
+    const imagesList = [img1, img2, img3].filter((img) => img && img.trim().length > 0);
+    const mainImage = imagesList.length > 0 ? imagesList[0] : "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600";
+
     const payload = {
       name: name.trim(),
       price: Number(price),
       stock: Number(stock) || 0,
       category: categorySelect || "پاککەرەوە",
-      img: selectedImage || "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600",
+      img: mainImage,
+      images: imagesList.length > 0 ? imagesList : [mainImage],
     };
 
     setName("");
     setPrice("");
     setStock("");
-    setSelectedImage("");
+    setImg1("");
+    setImg2("");
+    setImg3("");
 
     try {
       const res = await fetch("/api/store", {
@@ -281,6 +296,37 @@ export default function Home() {
       const data = await res.json();
       if (data.products) setProducts(data.products);
     } catch (err) {}
+  };
+
+  const handleAdminApplyDiscount = async (product: Product) => {
+    const currentBasePrice = product.originalPrice !== undefined ? product.originalPrice : product.price;
+    const input = prompt(`ڕێژەی داشکاندن بە سەدی (%) بۆ کاڵای "${product.name}" بنووسە (بۆ نموونە 20):\nنرخی ڕەسەن: ${currentBasePrice} IQD\nبۆ لابردنی داشکاندن 0 بنووسە:`);
+    if (input === null) return;
+
+    const percent = Number(input);
+    let updatedPayload: any = { ...product };
+
+    if (percent > 0 && percent < 100) {
+      const newPrice = currentBasePrice - (currentBasePrice * percent) / 100;
+      alert(`✓ داشکاندن سەرکەوتوو بوو!\nنرخی نوێی پاش داشکاندن: ${newPrice} IQD`);
+      updatedPayload.originalPrice = currentBasePrice;
+      updatedPayload.price = newPrice;
+      updatedPayload.discountPercent = percent;
+    } else {
+      updatedPayload.price = product.originalPrice !== undefined ? product.originalPrice : product.price;
+      updatedPayload.originalPrice = undefined;
+      updatedPayload.discountPercent = undefined;
+      alert("✓ داشکاندن لابرا و نرخی پێشووی گەڕایەوە.");
+    }
+
+    try {
+      await fetch("/api/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "ADD_PRODUCT", payload: updatedPayload }),
+      });
+      fetchLiveData();
+    } catch (e) {}
   };
 
   const handleAddNewHashtag = async () => {
@@ -627,9 +673,13 @@ export default function Home() {
     const cleanSearch = searchQuery.toLowerCase().trim().replace(/^#/, "");
     const matchSearch =
       p.name.toLowerCase().includes(cleanSearch) ||
-      (p.category && p.category.toLowerCase().includes(cleanSearch));
+      (p.category && p.category.toLowerCase().includes(cleanSearch)) ||
+      (cleanSearch.includes("داشکاندن") && p.originalPrice !== undefined);
 
     if (selectedCategory === "all") return matchSearch;
+    if (selectedCategory.includes("داشکاندن")) {
+      return matchSearch && p.originalPrice !== undefined;
+    }
     return matchSearch && p.category?.toLowerCase() === selectedCategory.toLowerCase();
   });
 
@@ -663,69 +713,70 @@ export default function Home() {
       <style jsx global>{`
         @keyframes floatLaser1 {
           0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
-          33% { transform: translate(350px, 200px) scale(1.3) rotate(120deg); }
-          66% { transform: translate(-200px, 300px) scale(0.9) rotate(240deg); }
+          25% { transform: translate(400px, 250px) scale(1.4) rotate(90deg); }
+          50% { transform: translate(-200px, 400px) scale(0.8) rotate(180deg); }
+          75% { transform: translate(-300px, -200px) scale(1.2) rotate(270deg); }
           100% { transform: translate(0px, 0px) scale(1) rotate(360deg); }
         }
         @keyframes floatLaser2 {
           0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
-          33% { transform: translate(-400px, -250px) scale(1.4) rotate(-120deg); }
-          66% { transform: translate(250px, -300px) scale(1.1) rotate(-240deg); }
+          33% { transform: translate(-500px, -300px) scale(1.5) rotate(-120deg); }
+          66% { transform: translate(300px, -400px) scale(1.2) rotate(-240deg); }
           100% { transform: translate(0px, 0px) scale(1) rotate(-360deg); }
         }
         @keyframes floatLaser3 {
           0% { transform: translate(0px, 0px) scale(1); }
-          50% { transform: translate(300px, -350px) scale(1.5); }
+          50% { transform: translate(400px, -450px) scale(1.6); }
           100% { transform: translate(0px, 0px) scale(1); }
         }
         @keyframes gridScroll {
           0% { background-position: 0 0; }
-          100% { background-position: 60px 60px; }
+          100% { background-position: 80px 80px; }
         }
         @keyframes shockwaveExpand {
           0% { width: 0px; height: 0px; opacity: 1; border-color: rgba(56, 189, 248, 1); }
           100% { width: 700px; height: 700px; opacity: 0; border-color: rgba(168, 85, 247, 0); }
         }
         .moving-grid {
-          background-image: linear-gradient(to right, rgba(56, 189, 248, 0.06) 1.5px, transparent 1.5px),
-                            linear-gradient(to bottom, rgba(56, 189, 248, 0.06) 1.5px, transparent 1.5px);
-          background-size: 50px 50px;
-          animation: gridScroll 20s linear infinite;
+          background-image: linear-gradient(to right, rgba(56, 189, 248, 0.1) 2px, transparent 2px),
+                            linear-gradient(to bottom, rgba(56, 189, 248, 0.1) 2px, transparent 2px);
+          background-size: 60px 60px;
+          animation: gridScroll 10s linear infinite;
         }
         .laser-glow-1 {
           position: absolute;
-          top: 0%;
-          left: 5%;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(14, 165, 233, 0.38) 0%, rgba(14, 165, 233, 0) 70%);
+          top: 10%;
+          left: 10%;
+          width: 700px;
+          height: 700px;
+          background: radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(14, 165, 233, 0) 70%);
           border-radius: 50%;
-          filter: blur(80px);
-          animation: floatLaser1 12s infinite ease-in-out;
+          filter: blur(90px);
+          animation: floatLaser1 8s infinite ease-in-out;
           pointer-events: none;
         }
         .laser-glow-2 {
           position: absolute;
-          top: 30%;
-          right: 5%;
-          width: 700px;
-          height: 700px;
-          background: radial-gradient(circle, rgba(168, 85, 247, 0.38) 0%, rgba(168, 85, 247, 0) 70%);
+          top: 40%;
+          right: 10%;
+          width: 800px;
+          height: 800px;
+          background: radial-gradient(circle, rgba(168, 85, 247, 0.45) 0%, rgba(168, 85, 247, 0) 70%);
           border-radius: 50%;
-          filter: blur(90px);
-          animation: floatLaser2 15s infinite ease-in-out;
+          filter: blur(100px);
+          animation: floatLaser2 10s infinite ease-in-out;
           pointer-events: none;
         }
         .laser-glow-3 {
           position: absolute;
-          bottom: 0%;
-          left: 30%;
-          width: 650px;
-          height: 650px;
-          background: radial-gradient(circle, rgba(236, 72, 153, 0.32) 0%, rgba(236, 72, 153, 0) 70%);
+          bottom: 10%;
+          left: 20%;
+          width: 750px;
+          height: 750px;
+          background: radial-gradient(circle, rgba(236, 72, 153, 0.4) 0%, rgba(236, 72, 153, 0) 70%);
           border-radius: 50%;
-          filter: blur(100px);
-          animation: floatLaser3 14s infinite ease-in-out;
+          filter: blur(110px);
+          animation: floatLaser3 9s infinite ease-in-out;
           pointer-events: none;
         }
         .shockwave {
@@ -740,14 +791,14 @@ export default function Home() {
         .bento-card {
           background: rgba(10, 14, 28, 0.75);
           backdrop-filter: blur(24px);
-          border: 1px solid rgba(56, 189, 248, 0.2);
+          border: 1px solid rgba(56, 189, 248, 0.25);
           box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
           transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
         }
         .bento-card:hover {
           transform: translateY(-6px);
-          border-color: rgba(56, 189, 248, 0.5);
-          box-shadow: 0 20px 50px -10px rgba(56, 189, 248, 0.35);
+          border-color: rgba(56, 189, 248, 0.6);
+          box-shadow: 0 20px 50px -10px rgba(56, 189, 248, 0.4);
         }
         .cyber-portal-box {
           background: radial-gradient(circle, #090d16 0%, #000000 100%);
@@ -758,6 +809,7 @@ export default function Home() {
           overflow: hidden;
           border: 1px solid rgba(56, 189, 248, 0.25);
           box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.9);
+          cursor: pointer;
         }
         .cyber-portal-box img {
           width: 90%;
@@ -781,6 +833,15 @@ export default function Home() {
       {ripples.map((rip) => (
         <span key={rip.id} className="shockwave" style={{ left: rip.x, top: rip.y }}></span>
       ))}
+
+      {zoomedImage && (
+        <div onClick={() => setZoomedImage(null)} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(2, 4, 10, 0.92)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999, padding: "20px", cursor: "zoom-out" }}>
+          <div style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}>
+            <img src={zoomedImage} alt="Zoomed" style={{ width: "100%", height: "auto", maxHeight: "85vh", objectFit: "contain", borderRadius: "12px", border: "1px solid rgba(56, 189, 248, 0.4)", boxShadow: "0 25px 60px rgba(0,0,0,0.9)" }} />
+            <button onClick={() => setZoomedImage(null)} style={{ position: "absolute", top: "-15px", right: "-15px", backgroundColor: "#ef4444", color: "#fff", border: "none", width: "36px", height: "36px", borderRadius: "50%", fontWeight: "bold", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }}>✕</button>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative", zIndex: 1 }}>
         
@@ -1159,18 +1220,35 @@ export default function Home() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
                 <h2 style={{ fontSize: "15px", fontWeight: "700", color: "#f8fafc", margin: 0 }}>زیادکردنی کاڵای نوێ</h2>
                 <span style={{ fontSize: "11px", color: "#38bdf8", backgroundColor: "rgba(56, 189, 248, 0.15)", padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(56, 189, 248, 0.3)" }}>
-                  ✨ Cyber Portal Frame Active
+                  ✨ Multi-Image Active
                 </span>
               </div>
-              <form onSubmit={handleAddProduct} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px" }}>
-                <input type="text" placeholder="ناوی کاڵا" value={name} onChange={(e) => setName(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.6)", border: "1px solid rgba(255,255,255,0.1)", padding: "8px 10px", borderRadius: "8px", color: "#fff", fontSize: "12px" }} required />
-                <input type="number" placeholder="نرخ (IQD)" value={price} onChange={(e) => setPrice(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.6)", border: "1px solid rgba(255,255,255,0.1)", padding: "8px 10px", borderRadius: "8px", color: "#fff", fontSize: "12px" }} required />
-                <input type="number" placeholder="دانە (Stock)" value={stock} onChange={(e) => setStock(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.6)", border: "1px solid rgba(255,255,255,0.1)", padding: "8px 10px", borderRadius: "8px", color: "#fff", fontSize: "12px" }} required />
-                <select value={categorySelect} onChange={(e) => setCategorySelect(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.8)", border: "1px solid rgba(255,255,255,0.1)", padding: "8px 10px", borderRadius: "8px", color: "#e2e8f0", fontSize: "12px" }}>
-                  {categories.map((cat) => (<option key={cat} value={cat}>{cat}</option>))}
-                </select>
-                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ fontSize: "11px", color: "#94a3b8" }} />
-                <button type="submit" style={{ backgroundColor: "#38bdf8", color: "#02040a", border: "none", padding: "8px", borderRadius: "8px", fontWeight: "700", fontSize: "12px", cursor: "pointer" }}>زیادکردن</button>
+              <form onSubmit={handleAddProduct} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "10px" }}>
+                  <input type="text" placeholder="ناوی کاڵا" value={name} onChange={(e) => setName(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.6)", border: "1px solid rgba(255,255,255,0.1)", padding: "9px 12px", borderRadius: "8px", color: "#fff", fontSize: "12px" }} required />
+                  <input type="number" placeholder="نرخ (IQD)" value={price} onChange={(e) => setPrice(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.6)", border: "1px solid rgba(255,255,255,0.1)", padding: "9px 12px", borderRadius: "8px", color: "#fff", fontSize: "12px" }} required />
+                  <input type="number" placeholder="دانە (Stock)" value={stock} onChange={(e) => setStock(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.6)", border: "1px solid rgba(255,255,255,0.1)", padding: "9px 12px", borderRadius: "8px", color: "#fff", fontSize: "12px" }} required />
+                  <select value={categorySelect} onChange={(e) => setCategorySelect(e.target.value)} style={{ backgroundColor: "rgba(2, 4, 10, 0.8)", border: "1px solid rgba(255,255,255,0.1)", padding: "9px 12px", borderRadius: "8px", color: "#e2e8f0", fontSize: "12px" }}>
+                    {categories.map((cat) => (<option key={cat} value={cat}>{cat}</option>))}
+                  </select>
+                </div>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", backgroundColor: "rgba(2,4,10,0.4)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(56,189,248,0.15)" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <label style={{ fontSize: "11px", color: "#38bdf8" }}>وێنەی یەکەم (سەرەکی): {img1 ? "✓ هەڵبژێردرا" : ""}</label>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageFileChange(e, setImg1)} style={{ fontSize: "11px", color: "#94a3b8" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <label style={{ fontSize: "11px", color: "#38bdf8" }}>وێنەی دووەم: {img2 ? "✓ هەڵبژێردرا" : ""}</label>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageFileChange(e, setImg2)} style={{ fontSize: "11px", color: "#94a3b8" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <label style={{ fontSize: "11px", color: "#38bdf8" }}>وێنەی سێیەم: {img3 ? "✓ هەڵبژێردرا" : ""}</label>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageFileChange(e, setImg3)} style={{ fontSize: "11px", color: "#94a3b8" }} />
+                  </div>
+                </div>
+
+                <button type="submit" style={{ backgroundColor: "#38bdf8", color: "#02040a", border: "none", padding: "10px", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>زیادکردنی کاڵا بۆ دوکان</button>
               </form>
             </div>
           </div>
@@ -1234,17 +1312,82 @@ export default function Home() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "16px", marginTop: "24px" }}>
           {filteredProducts.map((item) => {
             const isOutOfStock = item.stock <= 0;
+            const itemImages = item.images && item.images.length > 0 ? item.images : [item.img];
+            const hasDiscount = item.originalPrice !== undefined && item.discountPercent;
+            
             return (
-              <div key={item.id} className="bento-card" style={{ borderRadius: "16px", padding: "12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                <div className="cyber-portal-box" style={{ width: "100%", height: "180px", borderRadius: "12px", marginBottom: "12px" }}>
-                  <img src={item.img} alt={item.name} style={{ filter: isOutOfStock ? "grayscale(100%) opacity(40%)" : undefined }} />
+              <div key={item.id} className="bento-card" style={{ borderRadius: "16px", padding: "12px", display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative" }}>
+                
+                {hasDiscount && (
+                  <div style={{ position: "absolute", top: "20px", right: "20px", backgroundColor: "#ef4444", color: "#fff", fontSize: "11px", fontWeight: "bold", padding: "3px 8px", borderRadius: "6px", zIndex: 10, boxShadow: "0 4px 10px rgba(0,0,0,0.5)" }}>
+                    {item.discountPercent}% داشکاندن 🔥
+                  </div>
+                )}
+
+                <div>
+                  <div 
+                    className="cyber-portal-box" 
+                    onClick={() => setZoomedImage(itemImages[0])}
+                    style={{ width: "100%", height: "180px", borderRadius: "12px", marginBottom: "8px" }}
+                    title="کلیک بکە بۆ گەورەکردنی وێنە"
+                  >
+                    <img src={itemImages[0]} alt={item.name} style={{ filter: isOutOfStock ? "grayscale(100%) opacity(40%)" : undefined }} />
+                  </div>
+
+                  {itemImages.length > 1 && (
+                    <div style={{ display: "flex", gap: "6px", marginBottom: "8px", justifyContent: "center" }}>
+                      {itemImages.map((imgUrl, imgIdx) => (
+                        <div 
+                          key={imgIdx} 
+                          onClick={() => setZoomedImage(imgUrl)}
+                          style={{ width: "40px", height: "40px", borderRadius: "6px", overflow: "hidden", border: "1px solid rgba(56,189,248,0.3)", cursor: "pointer", backgroundColor: "#000" }}
+                        >
+                          <img src={imgUrl} alt={`thumb-${imgIdx}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
                 <div>
                   <h3 style={{ fontSize: "14px", fontWeight: "600", margin: "0 0 4px 0", color: isOutOfStock ? "#64748b" : "#f8fafc" }}>{item.name}</h3>
-                  <p style={{ fontSize: "15px", fontWeight: "700", color: "#34d399", margin: 0 }}>{item.price.toLocaleString()} <span style={{ fontSize: "10px", color: "#94a3b8" }}>IQD</span></p>
+                  
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                    <div>
+                      {hasDiscount ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: "700", color: "#34d399" }}>
+                            {item.price.toLocaleString()} <span style={{ fontSize: "9px" }}>IQD</span>
+                          </span>
+                          <span style={{ fontSize: "11px", color: "#94a3b8", textDecoration: "line-through" }}>
+                            {item.originalPrice?.toLocaleString()}
+                          </span>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: "14px", fontWeight: "700", color: "#34d399", margin: 0 }}>
+                          {item.price.toLocaleString()} <span style={{ fontSize: "10px", color: "#94a3b8" }}>IQD</span>
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "11px", color: isOutOfStock ? "#ef4444" : "#38bdf8", backgroundColor: "rgba(255,255,255,0.04)", padding: "2px 8px", borderRadius: "6px" }}>
+                        {isOutOfStock ? "سفر دانە" : `مابۆوە: ${item.stock}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isAdmin && (
+                    <button 
+                      onClick={() => handleAdminApplyDiscount(item)} 
+                      style={{ width: "100%", marginTop: "8px", backgroundColor: "rgba(52, 211, 153, 0.15)", color: "#34d399", border: "1px dashed rgba(52, 211, 153, 0.4)", padding: "4px", borderRadius: "6px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
+                    >
+                      {hasDiscount ? "⚙️ گۆڕینی ڕێژەی داشکاندن" : "⭐ زیادکردنی داشکاندن"}
+                    </button>
+                  )}
                 </div>
+
                 {isAdmin && (
-                  <button onClick={() => handleDeleteProduct(item.id)} style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", color: "#f87171", border: "none", padding: "4px", borderRadius: "6px", fontSize: "11px", marginTop: "8px", cursor: "pointer" }}>سڕینەوەی کاڵا</button>
+                  <button onClick={() => handleDeleteProduct(item.id)} style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", color: "#f87171", border: "none", padding: "4px", borderRadius: "6px", fontSize: "11px", marginTop: "6px", cursor: "pointer" }}>سڕینەوەی کاڵا</button>
                 )}
                 <button
                   onClick={() => addToCart(item)}
