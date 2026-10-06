@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import { Pool } from "pg";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes("localhost") ? false : { rejectUnauthorized: false }
-});
+const hasDatabaseUrl = !!process.env.DATABASE_URL;
 
-// دروستکردنی خشتەکان (Tables) ئەگەر بوونیان نەبوو
+const pool = hasDatabaseUrl ? new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+}) : null;
+
+const filePath = path.join(process.cwd(), "store_db.json");
+
 async function initDB() {
+  if (!pool) return;
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS store_data (
@@ -16,7 +22,6 @@ async function initDB() {
       );
     `);
     
-    // پشکنین ئەگەر مێزەکە خاڵی بوو، داتای سەرەتایی تێبکە
     const res = await pool.query(`SELECT COUNT(*) FROM store_data;`);
     if (parseInt(res.rows[0].count) === 0) {
       const initialData = {
@@ -41,19 +46,43 @@ async function initDB() {
   }
 }
 
-initDB();
+if (hasDatabaseUrl) {
+  initDB();
+}
 
 async function readDB() {
+  if (hasDatabaseUrl && pool) {
+    try {
+      const res = await pool.query(`SELECT data FROM store_data LIMIT 1;`);
+      if (res.rows.length > 0) {
+        return res.rows[0].data;
+      }
+    } catch (err) {
+      console.log("هەڵە لە خوێندنەوەی داتابەیس، دەگوازینەوە بۆ فایلی لۆکاڵی:", err);
+    }
+  }
+
+  // خوێندنەوە لە فایلی لۆکاڵی store_db.json ئەگەر داتابەیس ئامادە نەبوو
   try {
-    const res = await pool.query(`SELECT data FROM store_data LIMIT 1;`);
-    if (res.rows.length > 0) {
-      return res.rows[0].data;
+    if (fs.existsSync(filePath)) {
+      const fileData = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(fileData);
     }
   } catch (err) {
-    console.log("هەڵە لە خوێندنەوەی داتابەیس:", err);
+    console.log("هەڵە لە خوێندنەوەی فایلی لۆکاڵی:", err);
   }
+
   return {
-    products: [],
+    products: [
+      {
+        id: 1,
+        name: "زاهی",
+        price: 1000,
+        stock: 10,
+        img: "https://images.unsplash.com/photo-1585421514738-01798e348b17?w=600",
+        category: "پاککەرەوە",
+      },
+    ],
     categories: ["پاککەرەوە", "game"],
     orders: [],
     registeredUsers: [],
@@ -61,10 +90,19 @@ async function readDB() {
 }
 
 async function writeDB(data: any) {
+  if (hasDatabaseUrl && pool) {
+    try {
+      await pool.query(`UPDATE store_data SET data = $1;`, [JSON.stringify(data)]);
+      return;
+    } catch (err) {
+      console.log("هەڵە لە نوێکردنەوەی داتابەیس، دەگوازینەوە بۆ فایلی لۆکاڵی:", err);
+    }
+  }
+
   try {
-    await pool.query(`UPDATE store_data SET data = $1;`, [JSON.stringify(data)]);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
-    console.log("هەڵە لە پاشەکەوتکردنی داتابەیس:", err);
+    console.log("هەڵە لە پاشەکەوتکردنی فایلی لۆکاڵی:", err);
   }
 }
 

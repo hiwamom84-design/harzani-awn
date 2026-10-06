@@ -787,7 +787,7 @@ export default function Home() {
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "24px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", flexWrap: "wrap", gap: "16px" }}>
           <div>
             <h1 style={{ fontSize: "24px", fontWeight: "800", letterSpacing: "-0.5px", color: "#ffffff", margin: 0 }}>
-              هرزانی ئاون
+              هەرزانی ئاون
             </h1>
             <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "2px", margin: 0 }}>فروشگای فەرمی ئۆنلاین</p>
           </div>
